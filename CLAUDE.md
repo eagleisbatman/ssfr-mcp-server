@@ -57,7 +57,7 @@ Defined in `src/index.ts` as `server.tool()` call:
 ### get_fertilizer_recommendation
 **Lines: ~80-165**
 - **Purpose**: Get complete fertilizer recommendation for wheat or maize
-- **Input**: ssfr_crop (required), latitude, longitude (optional), query (optional)
+- **Input**: crop (required), latitude, longitude (optional)
 - **Process**:
   - Automatically validates location is in Ethiopia (no separate check tool needed)
   - Fetches data from 5 layers in parallel:
@@ -69,7 +69,6 @@ Defined in `src/index.ts` as `server.tool()` call:
   - Combines results into structured recommendation
 - **Output**: JSON with organic/inorganic fertilizers, expected yield, units
 - **Crops**: wheat, maize only
-- **Note**: Matches FarmerChat API structure - uses `ssfr_crop` parameter name
 
 ## Supported Crops
 

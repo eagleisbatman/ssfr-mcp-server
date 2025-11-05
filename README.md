@@ -156,10 +156,9 @@ npm start       # Production mode
 **Purpose:** Get fertilizer recommendations for wheat or maize
 
 **Parameters:**
-- `ssfr_crop` (required): "wheat" or "maize" (matches FarmerChat API field name)
+- `crop` (required): "wheat" or "maize"
 - `latitude` (optional): Latitude coordinate
 - `longitude` (optional): Longitude coordinate
-- `query` (optional): User query text for context
 
 **Note:** This tool automatically checks if the location is in Ethiopia. If coordinates are outside Ethiopia, it returns an error.
 

@@ -76,22 +76,21 @@ app.post('/mcp', async (req, res) => {
       description: 'Site-Specific Fertilizer Recommendations (SSFR) for Ethiopian farmers. Provides personalized fertilizer quantity and type advice based on location coordinates. Only works for Ethiopian locations.'
     });
 
-    // Single Tool: Get fertilizer recommendation (matches FarmerChat API structure)
+    // Single Tool: Get fertilizer recommendation
     server.tool(
       'get_fertilizer_recommendation',
-      'Get Site-Specific Fertilizer Recommendation for wheat or maize. This tool automatically checks if the location is in Ethiopia. Returns organic and inorganic fertilizer quantities (Compost, Vermicompost, Urea, NPS) plus expected yield.',
+      'Get Site-Specific Fertilizer Recommendation for wheat or maize in Ethiopia. This tool automatically checks if the location is in Ethiopia. Returns organic and inorganic fertilizer quantities (Compost, Vermicompost, Urea, NPS) plus expected yield.',
       {
-        ssfr_crop: z.enum(['wheat', 'maize']).describe('Crop type: wheat or maize (matches FarmerChat API field name)'),
+        crop: z.enum(['wheat', 'maize']).describe('Crop type: wheat or maize'),
         latitude: z.number().min(-90).max(90).optional().describe('Latitude coordinate. Optional if provided in headers.'),
-        longitude: z.number().min(-180).max(180).optional().describe('Longitude coordinate. Optional if provided in headers.'),
-        query: z.string().optional().describe('Optional user query text (e.g., "What is the recommended quantity of fertilizer for wheat?"). Used for context but not required.')
+        longitude: z.number().min(-180).max(180).optional().describe('Longitude coordinate. Optional if provided in headers.')
       },
-      async ({ ssfr_crop, latitude, longitude, query }) => {
+      async ({ crop, latitude, longitude }) => {
         try {
           const lat = latitude ?? defaultLatitude;
           const lon = longitude ?? defaultLongitude;
 
-          console.log(`[MCP Tool] get_fertilizer_recommendation called: crop=${ssfr_crop}, lat=${lat}, lon=${lon}, query=${query || 'none'}`);
+          console.log(`[MCP Tool] get_fertilizer_recommendation called: crop=${crop}, lat=${lat}, lon=${lon}`);
 
           if (lat === undefined || lon === undefined) {
             return {
@@ -122,9 +121,9 @@ app.post('/mcp', async (req, res) => {
             };
           }
 
-          const recommendation = await ssfrClient.getFertilizerRecommendation(ssfr_crop, lat, lon);
+          const recommendation = await ssfrClient.getFertilizerRecommendation(crop, lat, lon);
 
-          // Format response matching FarmerChat API structure
+          // Format response
           const response = {
             crop: recommendation.crop,
             location: recommendation.location,
