@@ -29,7 +29,16 @@ Ethiopia bounds:
 - Latitude: 3.0°N to 15.0°N
 - Longitude: 32.0°E to 48.0°E
 
-## 🏃 Quick Start
+### Technical Features
+
+- ✅ Input validation for coordinates and crop types
+- ✅ 30-second timeout protection (prevents hanging requests)
+- ✅ Graceful partial failure handling (if one layer fails, others still work)
+- ✅ Response validation and error handling
+- ✅ Graceful shutdown handling (SIGTERM/SIGINT)
+- ✅ Safe numeric parsing with NaN validation
+- ✅ TypeScript for production reliability
+- ✅ StreamableHTTP MCP transport
 
 ### Prerequisites
 
@@ -106,8 +115,7 @@ This server can be deployed to any Node.js hosting platform:
 **4. Configure System Prompt:**
 
 The agent should:
-- Check `is_ssfr_enabled` first if user asks about fertilizers
-- Only call `get_fertilizer_recommendation` for Ethiopian locations
+- Only call `get_fertilizer_recommendation` for Ethiopian locations (tool automatically validates)
 - Use farmer-friendly language (hybrid approach: description + numbers + explanation)
 - Format responses clearly for farmers
 
@@ -129,7 +137,7 @@ Next-gen Agro Advisory API
 ```
 ssfr-mcp-server/
 ├── src/
-│   ├── index.ts          # Main: 2 MCP tools + server setup
+│   ├── index.ts          # Main: 1 MCP tool + server setup
 │   └── ssfr-client.ts    # Next-gen Agro Advisory API client
 ├── dist/                 # Compiled output (generated)
 ├── package.json          # Dependencies and scripts
