@@ -46,10 +46,11 @@ export const SSFR_LAYERS = {
 
 /**
  * Dates for different layer types
- * Note: All layers currently use '2024-07' per API documentation
+ * Note: Yield layer uses 2025-07, all other layers use 2024-07 per API documentation
  */
 export const LAYER_DATES = {
-  default: '2024-07'
+  default: '2024-07',
+  yield: '2025-07'
 };
 
 /**
@@ -172,9 +173,10 @@ export class SSFRClient {
 
     try {
       const response = await fetch(url, {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
           'User-Agent': 'SSFR-MCP-Server/1.0.0'
         },
         signal: controller.signal
@@ -196,9 +198,31 @@ export class SSFRClient {
 
       // Validate response structure
       if (!data || typeof data !== 'object') {
-        throw new Error('Invalid API response format: expected object');
+        throw new Error('Invalid API response format: expected object or array');
       }
 
+      // Handle direct array response (API returns array of coordinate objects)
+      if (Array.isArray(data)) {
+        // Empty array means no data for this location/layer
+        if (data.length === 0) {
+          return {
+            coordinates: [],
+            date,
+            layer
+          };
+        }
+        return {
+          coordinates: data.map((item: any) => ({
+            lat: item.lat,
+            lon: item.lon,
+            value: item.value !== undefined ? item.value : (item.value_dominant !== undefined ? item.value_dominant : item.dominant_value)
+          })),
+          date,
+          layer
+        };
+      }
+
+      // Handle object response (if API wraps in object)
       return data;
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -245,7 +269,7 @@ export class SSFRClient {
       this.getLayerData(layers.nps, lat, lon).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'nps' })),
       this.getLayerData(layers.urea, lat, lon).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'urea' })),
       this.getLayerData(layers.vcompost, lat, lon).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'vcompost' })),
-      this.getLayerData(layers.yield, lat, lon, LAYER_DATES.default).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'yield' }))
+      this.getLayerData(layers.yield, lat, lon, LAYER_DATES.yield).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'yield' }))
     ];
 
     const results = await Promise.all(layerPromises);
