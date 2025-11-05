@@ -179,7 +179,7 @@ app.post('/mcp', async (req, res) => {
 
 // Start server
 const HOST = '0.0.0.0';
-app.listen(Number(PORT), HOST, () => {
+const server = app.listen(Number(PORT), HOST, () => {
   console.log('');
   console.log('🚀 =========================================');
   console.log('   SSFR Fertilizer Recommendations MCP Server');
@@ -194,5 +194,22 @@ app.listen(Number(PORT), HOST, () => {
   console.log('📝 Provides fertilizer recommendations based on location');
   console.log('=========================================');
   console.log('');
+});
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
 });
 
