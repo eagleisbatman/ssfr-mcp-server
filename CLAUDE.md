@@ -144,7 +144,7 @@ server.tool(
 **Parameters:**
 - `layer`: Layer name (e.g., `et_wheat_urea_probabilistic_dominant`)
 - `coordinates`: URL-encoded JSON array: `[{"lat":12.9345,"lon":77.6266}]`
-- `date`: "2025-07" for DAP layer, "2024-07" for others
+- `date`: "2024-07" (default for all layers)
 
 **Response Format:**
 - Returns coordinate data with values

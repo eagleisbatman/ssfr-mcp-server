@@ -46,29 +46,32 @@ export const SSFR_LAYERS = {
 
 /**
  * Dates for different layer types
+ * Note: All layers currently use '2024-07' per API documentation
  */
 export const LAYER_DATES = {
-  dap: '2025-07',
-  other: '2024-07'
+  default: '2024-07'
 };
 
 /**
  * Response from Next-gen Agro Advisory API
+ * Note: Actual API response structure may vary - this is a flexible interface
  */
 export interface SSFRResponse {
   /** Layer name */
-  layer: string;
+  layer?: string;
   /** Coordinate data */
-  coordinates: Array<{
-    lat: number;
-    lon: number;
+  coordinates?: Array<{
+    lat?: number;
+    lon?: number;
     /** Value returned for this coordinate */
-    value?: number | string;
+    value?: number | string | null;
     /** Additional metadata */
     [key: string]: any;
   }>;
   /** Date used for the query */
-  date: string;
+  date?: string;
+  /** Additional fields that may be present */
+  [key: string]: any;
 }
 
 /**
@@ -139,30 +142,71 @@ export class SSFRClient {
     layer: string,
     lat: number,
     lon: number,
-    date: string = LAYER_DATES.other
+    date: string = LAYER_DATES.default
   ): Promise<SSFRResponse> {
+    // Validate inputs
+    if (!layer || typeof layer !== 'string') {
+      throw new Error('Invalid layer name');
+    }
+    if (typeof lat !== 'number' || isNaN(lat) || lat < -90 || lat > 90) {
+      throw new Error(`Invalid latitude: ${lat}`);
+    }
+    if (typeof lon !== 'number' || isNaN(lon) || lon < -180 || lon > 180) {
+      throw new Error(`Invalid longitude: ${lon}`);
+    }
+    if (!date || typeof date !== 'string') {
+      throw new Error('Invalid date format');
+    }
+
     // Format coordinates as URL-encoded JSON array
     const coordinates = JSON.stringify([{ lat, lon }]);
     const encodedCoords = encodeURIComponent(coordinates);
 
     const url = `${this.baseUrl}/coordinates/${layer}/${encodedCoords}/${date}`;
 
-    console.log(`[SSFR API] Fetching: ${layer} for (${lat}, ${lon})`);
+    console.log(`[SSFR API] Fetching: ${layer} for (${lat}, ${lon}) on ${date}`);
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
+    // Create AbortController for timeout (30 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'SSFR-MCP-Server/1.0.0'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`SSFR API error (${response.status}): ${errorText || response.statusText}`);
       }
-    });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`SSFR API error: ${response.status} ${response.statusText} - ${errorText}`);
+      let data: SSFRResponse;
+      try {
+        data = await response.json() as SSFRResponse;
+      } catch (parseError) {
+        throw new Error(`Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      }
+
+      // Validate response structure
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid API response format: expected object');
+      }
+
+      return data;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout: API took too long to respond (30s limit)');
+      }
+      throw error;
     }
-
-    const data = await response.json() as SSFRResponse;
-    return data;
   }
 
   /**
@@ -192,34 +236,81 @@ export class SSFRClient {
       dataSource: 'Next-gen Agro Advisory Service'
     };
 
-    // Fetch all layer data in parallel
-    const [compostData, npsData, ureaData, vcompostData, yieldData] = await Promise.all([
-      this.getLayerData(layers.compost, lat, lon),
-      this.getLayerData(layers.nps, lat, lon),
-      this.getLayerData(layers.urea, lat, lon),
-      this.getLayerData(layers.vcompost, lat, lon),
-      this.getLayerData(layers.yield, lat, lon, LAYER_DATES.other)
-    ]);
+    // Fetch all layer data in parallel with error handling per layer
+    // Each promise resolves to either SSFRResponse or an error object
+    type LayerResult = SSFRResponse | { error: string; layer: string };
 
-    // Extract values from responses
-    if (compostData.coordinates && compostData.coordinates[0]?.value) {
-      recommendation.organic.compost = parseFloat(compostData.coordinates[0].value.toString());
+    const layerPromises: Promise<LayerResult>[] = [
+      this.getLayerData(layers.compost, lat, lon).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'compost' })),
+      this.getLayerData(layers.nps, lat, lon).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'nps' })),
+      this.getLayerData(layers.urea, lat, lon).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'urea' })),
+      this.getLayerData(layers.vcompost, lat, lon).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'vcompost' })),
+      this.getLayerData(layers.yield, lat, lon, LAYER_DATES.default).catch(err => ({ error: err instanceof Error ? err.message : String(err), layer: 'yield' }))
+    ];
+
+    const results = await Promise.all(layerPromises);
+
+    // Helper function to safely parse numeric values
+    const parseNumericValue = (value: any): number | undefined => {
+      if (value === null || value === undefined) return undefined;
+      const parsed = parseFloat(value.toString());
+      return isNaN(parsed) ? undefined : parsed;
+    };
+
+    // Helper function to check if result is an error
+    const isError = (result: LayerResult): result is { error: string; layer: string } => {
+      return 'error' in result;
+    };
+
+    // Extract values from responses (handle partial failures gracefully)
+    const compostData = results[0];
+    const npsData = results[1];
+    const ureaData = results[2];
+    const vcompostData = results[3];
+    const yieldData = results[4];
+
+    if (!isError(compostData) && compostData.coordinates && compostData.coordinates[0]?.value) {
+      const value = parseNumericValue(compostData.coordinates[0].value);
+      if (value !== undefined) {
+        recommendation.organic.compost = value;
+      }
     }
 
-    if (vcompostData.coordinates && vcompostData.coordinates[0]?.value) {
-      recommendation.organic.vermicompost = parseFloat(vcompostData.coordinates[0].value.toString());
+    if (!isError(vcompostData) && vcompostData.coordinates && vcompostData.coordinates[0]?.value) {
+      const value = parseNumericValue(vcompostData.coordinates[0].value);
+      if (value !== undefined) {
+        recommendation.organic.vermicompost = value;
+      }
     }
 
-    if (ureaData.coordinates && ureaData.coordinates[0]?.value) {
-      recommendation.inorganic.urea = parseFloat(ureaData.coordinates[0].value.toString());
+    if (!isError(ureaData) && ureaData.coordinates && ureaData.coordinates[0]?.value) {
+      const value = parseNumericValue(ureaData.coordinates[0].value);
+      if (value !== undefined) {
+        recommendation.inorganic.urea = value;
+      }
     }
 
-    if (npsData.coordinates && npsData.coordinates[0]?.value) {
-      recommendation.inorganic.nps = parseFloat(npsData.coordinates[0].value.toString());
+    if (!isError(npsData) && npsData.coordinates && npsData.coordinates[0]?.value) {
+      const value = parseNumericValue(npsData.coordinates[0].value);
+      if (value !== undefined) {
+        recommendation.inorganic.nps = value;
+      }
     }
 
-    if (yieldData.coordinates && yieldData.coordinates[0]?.value) {
-      recommendation.expectedYield = parseFloat(yieldData.coordinates[0].value.toString());
+    if (!isError(yieldData) && yieldData.coordinates && yieldData.coordinates[0]?.value) {
+      const value = parseNumericValue(yieldData.coordinates[0].value);
+      if (value !== undefined) {
+        recommendation.expectedYield = value;
+      }
+    }
+
+    // Check if we got at least some data
+    const hasOrganicData = recommendation.organic.compost !== undefined || recommendation.organic.vermicompost !== undefined;
+    const hasInorganicData = recommendation.inorganic.urea !== undefined || recommendation.inorganic.nps !== undefined;
+    const hasAnyData = hasOrganicData || hasInorganicData || recommendation.expectedYield !== undefined;
+
+    if (!hasAnyData) {
+      throw new Error('No fertilizer recommendation data was returned from the API. The location may not have data available.');
     }
 
     return recommendation;
