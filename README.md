@@ -3,10 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
+[![Railway](https://railway.app/button.svg)](https://railway.app)
 
 **Model Context Protocol (MCP) server providing Site-Specific Fertilizer Recommendations (SSFR) for Ethiopian farmers.**
 
-Provides personalized fertilizer quantity and type advice based on location coordinates using the Next-gen Agro Advisory Service.
+Integrates with the Next-gen Agro Advisory Service to deliver personalized fertilizer quantity and type advice based on location coordinates. Provides recommendations for wheat and maize crops including organic (compost, vermicompost) and inorganic (urea, NPS) fertilizers with expected yield predictions. Designed for integration with AI agents via OpenAI Agent Builder.
 
 ## ✨ Features
 
@@ -14,7 +15,7 @@ Provides personalized fertilizer quantity and type advice based on location coor
 
 | Tool | Purpose |
 |------|---------|
-| `get_fertilizer_recommendation` | Get fertilizer recommendations for wheat or maize. Automatically checks if location is in Ethiopia. |
+| `get_fertilizer_recommendation` | Get site-specific fertilizer recommendations for wheat or maize crops. Automatically validates location is within Ethiopia bounds. Returns organic fertilizers (compost, vermicompost), inorganic fertilizers (urea, NPS), and expected yield predictions. |
 
 ### Supported Crops (2)
 
