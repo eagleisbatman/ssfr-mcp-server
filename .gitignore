@@ -4,3 +4,6 @@ dist/
 *.log
 .DS_Store
 
+
+# Cursor IDE rules (local development file)
+.cursorrules
