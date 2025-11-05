@@ -293,39 +293,68 @@ export class SSFRClient {
     const vcompostData = results[3];
     const yieldData = results[4];
 
-    if (!isError(compostData) && compostData.coordinates && compostData.coordinates[0]?.value) {
-      const value = parseNumericValue(compostData.coordinates[0].value);
-      if (value !== undefined) {
-        recommendation.organic.compost = value;
+    // Track which layers returned data
+    const layersWithData: string[] = [];
+    const layersWithErrors: string[] = [];
+
+    if (!isError(compostData)) {
+      if (compostData.coordinates && compostData.coordinates.length > 0 && compostData.coordinates[0]?.value) {
+        const value = parseNumericValue(compostData.coordinates[0].value);
+        if (value !== undefined) {
+          recommendation.organic.compost = value;
+          layersWithData.push('compost');
+        }
       }
+    } else {
+      layersWithErrors.push(`compost: ${compostData.error}`);
     }
 
-    if (!isError(vcompostData) && vcompostData.coordinates && vcompostData.coordinates[0]?.value) {
-      const value = parseNumericValue(vcompostData.coordinates[0].value);
-      if (value !== undefined) {
-        recommendation.organic.vermicompost = value;
+    if (!isError(vcompostData)) {
+      if (vcompostData.coordinates && vcompostData.coordinates.length > 0 && vcompostData.coordinates[0]?.value) {
+        const value = parseNumericValue(vcompostData.coordinates[0].value);
+        if (value !== undefined) {
+          recommendation.organic.vermicompost = value;
+          layersWithData.push('vermicompost');
+        }
       }
+    } else {
+      layersWithErrors.push(`vermicompost: ${vcompostData.error}`);
     }
 
-    if (!isError(ureaData) && ureaData.coordinates && ureaData.coordinates[0]?.value) {
-      const value = parseNumericValue(ureaData.coordinates[0].value);
-      if (value !== undefined) {
-        recommendation.inorganic.urea = value;
+    if (!isError(ureaData)) {
+      if (ureaData.coordinates && ureaData.coordinates.length > 0 && ureaData.coordinates[0]?.value) {
+        const value = parseNumericValue(ureaData.coordinates[0].value);
+        if (value !== undefined) {
+          recommendation.inorganic.urea = value;
+          layersWithData.push('urea');
+        }
       }
+    } else {
+      layersWithErrors.push(`urea: ${ureaData.error}`);
     }
 
-    if (!isError(npsData) && npsData.coordinates && npsData.coordinates[0]?.value) {
-      const value = parseNumericValue(npsData.coordinates[0].value);
-      if (value !== undefined) {
-        recommendation.inorganic.nps = value;
+    if (!isError(npsData)) {
+      if (npsData.coordinates && npsData.coordinates.length > 0 && npsData.coordinates[0]?.value) {
+        const value = parseNumericValue(npsData.coordinates[0].value);
+        if (value !== undefined) {
+          recommendation.inorganic.nps = value;
+          layersWithData.push('nps');
+        }
       }
+    } else {
+      layersWithErrors.push(`nps: ${npsData.error}`);
     }
 
-    if (!isError(yieldData) && yieldData.coordinates && yieldData.coordinates[0]?.value) {
-      const value = parseNumericValue(yieldData.coordinates[0].value);
-      if (value !== undefined) {
-        recommendation.expectedYield = value;
+    if (!isError(yieldData)) {
+      if (yieldData.coordinates && yieldData.coordinates.length > 0 && yieldData.coordinates[0]?.value) {
+        const value = parseNumericValue(yieldData.coordinates[0].value);
+        if (value !== undefined) {
+          recommendation.expectedYield = value;
+          layersWithData.push('yield');
+        }
       }
+    } else {
+      layersWithErrors.push(`yield: ${yieldData.error}`);
     }
 
     // Check if we got at least some data
@@ -334,7 +363,10 @@ export class SSFRClient {
     const hasAnyData = hasOrganicData || hasInorganicData || recommendation.expectedYield !== undefined;
 
     if (!hasAnyData) {
-      throw new Error('No fertilizer recommendation data was returned from the API. The location may not have data available.');
+      const errorDetails = layersWithErrors.length > 0 
+        ? ` API errors: ${layersWithErrors.join(', ')}.`
+        : ' All API calls returned empty results (no data available for this location).';
+      throw new Error(`No fertilizer recommendation data was returned from the API.${errorDetails} The location may not have data available, or the coordinates may be outside the API coverage area.`);
     }
 
     return recommendation;
