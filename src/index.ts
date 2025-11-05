@@ -46,7 +46,6 @@ app.get('/', (req, res) => {
       mcp: '/mcp (POST)'
     },
     tools: [
-      'is_ssfr_enabled',
       'get_fertilizer_recommendation'
     ],
     supportedCrops: ['wheat', 'maize'],
@@ -74,79 +73,25 @@ app.post('/mcp', async (req, res) => {
     const server = new McpServer({
       name: 'ssfr-fertilizer-recommendations',
       version: '1.0.0',
-      description: 'Site-Specific Fertilizer Recommendations (SSFR) for Ethiopian farmers. Provides personalized fertilizer quantity and type advice based on location coordinates.'
+      description: 'Site-Specific Fertilizer Recommendations (SSFR) for Ethiopian farmers. Provides personalized fertilizer quantity and type advice based on location coordinates. Only works for Ethiopian locations.'
     });
 
-    // Tool 1: Check if SSFR is enabled (Ethiopia location check)
-    server.tool(
-      'is_ssfr_enabled',
-      'Check if Site-Specific Fertilizer Recommendations (SSFR) are enabled for a given location. SSFR is only available for Ethiopian locations.',
-      {
-        latitude: z.number().min(-90).max(90).optional().describe('Latitude coordinate. Optional if provided in headers.'),
-        longitude: z.number().min(-180).max(180).optional().describe('Longitude coordinate. Optional if provided in headers.')
-      },
-      async ({ latitude, longitude }) => {
-        try {
-          const lat = latitude ?? defaultLatitude;
-          const lon = longitude ?? defaultLongitude;
-
-          console.log(`[MCP Tool] is_ssfr_enabled called: lat=${lat}, lon=${lon}`);
-
-          if (lat === undefined || lon === undefined) {
-            return {
-              content: [{
-                type: 'text',
-                text: 'I need to know your farm location to check if fertilizer recommendations are available. Please provide your latitude and longitude coordinates.'
-              }],
-              isError: true
-            };
-          }
-
-          const isEnabled = ssfrClient.isInEthiopia(lat, lon);
-
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                is_enabled: isEnabled,
-                location: {
-                  latitude: lat,
-                  longitude: lon
-                },
-                message: isEnabled
-                  ? 'Site-Specific Fertilizer Recommendations are available for your location in Ethiopia.'
-                  : 'Site-Specific Fertilizer Recommendations are only available for locations in Ethiopia. Your coordinates are outside the supported region.'
-              }, null, 2)
-            }]
-          };
-        } catch (error: any) {
-          console.error('[MCP Tool] Error in is_ssfr_enabled:', error);
-          return {
-            content: [{
-              type: 'text',
-              text: 'I\'m having trouble checking fertilizer recommendation availability. Try again in a moment?'
-            }],
-            isError: true
-          };
-        }
-      }
-    );
-
-    // Tool 2: Get fertilizer recommendation
+    // Single Tool: Get fertilizer recommendation (matches FarmerChat API structure)
     server.tool(
       'get_fertilizer_recommendation',
-      'Get Site-Specific Fertilizer Recommendation for wheat or maize in Ethiopia. Returns organic and inorganic fertilizer quantities, plus expected yield.',
+      'Get Site-Specific Fertilizer Recommendation for wheat or maize. This tool automatically checks if the location is in Ethiopia. Returns organic and inorganic fertilizer quantities (Compost, Vermicompost, Urea, NPS) plus expected yield.',
       {
-        crop: z.enum(['wheat', 'maize']).describe('Crop type: wheat or maize'),
+        ssfr_crop: z.enum(['wheat', 'maize']).describe('Crop type: wheat or maize (matches FarmerChat API field name)'),
         latitude: z.number().min(-90).max(90).optional().describe('Latitude coordinate. Optional if provided in headers.'),
-        longitude: z.number().min(-180).max(180).optional().describe('Longitude coordinate. Optional if provided in headers.')
+        longitude: z.number().min(-180).max(180).optional().describe('Longitude coordinate. Optional if provided in headers.'),
+        query: z.string().optional().describe('Optional user query text (e.g., "What is the recommended quantity of fertilizer for wheat?"). Used for context but not required.')
       },
-      async ({ crop, latitude, longitude }) => {
+      async ({ ssfr_crop, latitude, longitude, query }) => {
         try {
           const lat = latitude ?? defaultLatitude;
           const lon = longitude ?? defaultLongitude;
 
-          console.log(`[MCP Tool] get_fertilizer_recommendation called: crop=${crop}, lat=${lat}, lon=${lon}`);
+          console.log(`[MCP Tool] get_fertilizer_recommendation called: crop=${ssfr_crop}, lat=${lat}, lon=${lon}, query=${query || 'none'}`);
 
           if (lat === undefined || lon === undefined) {
             return {
@@ -158,7 +103,7 @@ app.post('/mcp', async (req, res) => {
             };
           }
 
-          // Check if location is in Ethiopia
+          // Automatically check if location is in Ethiopia (no separate tool needed)
           if (!ssfrClient.isInEthiopia(lat, lon)) {
             return {
               content: [{
@@ -177,9 +122,9 @@ app.post('/mcp', async (req, res) => {
             };
           }
 
-          const recommendation = await ssfrClient.getFertilizerRecommendation(crop, lat, lon);
+          const recommendation = await ssfrClient.getFertilizerRecommendation(ssfr_crop, lat, lon);
 
-          // Format response for agent analysis
+          // Format response matching FarmerChat API structure
           const response = {
             crop: recommendation.crop,
             location: recommendation.location,
@@ -245,7 +190,7 @@ app.listen(Number(PORT), HOST, () => {
   console.log(`🌾 MCP endpoint: http://localhost:${PORT}/mcp`);
   console.log(`🌍 Supported Region: Ethiopia only`);
   console.log(`🌾 Supported Crops: wheat, maize`);
-  console.log(`🛠️  Tools: 2 (is_ssfr_enabled, get_fertilizer_recommendation)`);
+  console.log(`🛠️  Tools: 1 (get_fertilizer_recommendation)`);
   console.log('=========================================');
   console.log('📝 Provides fertilizer recommendations based on location');
   console.log('=========================================');

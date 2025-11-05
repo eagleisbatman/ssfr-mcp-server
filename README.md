@@ -10,12 +10,11 @@ Provides personalized fertilizer quantity and type advice based on location coor
 
 ## ✨ Features
 
-### 2 MCP Tools
+### 1 MCP Tool
 
 | Tool | Purpose |
 |------|---------|
-| `is_ssfr_enabled` | Check if SSFR is available for a location (Ethiopia only) |
-| `get_fertilizer_recommendation` | Get fertilizer recommendations for wheat or maize |
+| `get_fertilizer_recommendation` | Get fertilizer recommendations for wheat or maize. Automatically checks if location is in Ethiopia. |
 
 ### Supported Crops (2)
 
@@ -152,34 +151,17 @@ npm start       # Production mode
 
 ## 📚 API Reference
 
-### Tool: is_ssfr_enabled
-
-**Purpose:** Check if SSFR is available for a location
-
-**Parameters:**
-- `latitude` (optional): Latitude coordinate
-- `longitude` (optional): Longitude coordinate
-
-**Returns:**
-```json
-{
-  "is_enabled": true,
-  "location": {
-    "latitude": 12.9345,
-    "longitude": 77.6266
-  },
-  "message": "Site-Specific Fertilizer Recommendations are available for your location in Ethiopia."
-}
-```
-
 ### Tool: get_fertilizer_recommendation
 
 **Purpose:** Get fertilizer recommendations for wheat or maize
 
 **Parameters:**
-- `crop` (required): "wheat" or "maize"
+- `ssfr_crop` (required): "wheat" or "maize" (matches FarmerChat API field name)
 - `latitude` (optional): Latitude coordinate
 - `longitude` (optional): Longitude coordinate
+- `query` (optional): User query text for context
+
+**Note:** This tool automatically checks if the location is in Ethiopia. If coordinates are outside Ethiopia, it returns an error.
 
 **Returns:**
 ```json

@@ -22,8 +22,8 @@ This is a **data transformation layer** that:
 Main server file containing:
 - Express.js setup with CORS
 - MCP server initialization
-- **2 SSFR tools** (see below)
-- Location validation logic
+- **1 SSFR tool** (see below)
+- Location validation logic (automatic within tool)
 
 ### src/ssfr-client.ts
 Wrapper for Next-gen Agro Advisory API:
@@ -50,24 +50,16 @@ npm start
 curl http://localhost:3001/health
 ```
 
-## The 2 SSFR Tools
+## The SSFR Tool
 
-All defined in `src/index.ts` as `server.tool()` calls:
+Defined in `src/index.ts` as `server.tool()` call:
 
-### 1. is_ssfr_enabled
-**Lines: ~67-112**
-- **Purpose**: Check if SSFR is available for a location
-- **Input**: latitude, longitude (optional if in headers)
-- **Process**: Validates coordinates are within Ethiopia bounds
-- **Output**: JSON with `is_enabled` boolean and location info
-- **Key**: Always call this first before getting recommendations
-
-### 2. get_fertilizer_recommendation
-**Lines: ~115-205**
+### get_fertilizer_recommendation
+**Lines: ~80-165**
 - **Purpose**: Get complete fertilizer recommendation for wheat or maize
-- **Input**: crop (required), latitude, longitude (optional)
+- **Input**: ssfr_crop (required), latitude, longitude (optional), query (optional)
 - **Process**:
-  - Validates location is in Ethiopia
+  - Automatically validates location is in Ethiopia (no separate check tool needed)
   - Fetches data from 5 layers in parallel:
     - Compost layer
     - NPS layer
@@ -77,6 +69,7 @@ All defined in `src/index.ts` as `server.tool()` calls:
   - Combines results into structured recommendation
 - **Output**: JSON with organic/inorganic fertilizers, expected yield, units
 - **Crops**: wheat, maize only
+- **Note**: Matches FarmerChat API structure - uses `ssfr_crop` parameter name
 
 ## Supported Crops
 
